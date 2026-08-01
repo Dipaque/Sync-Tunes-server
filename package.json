@@ -1,0 +1,28 @@
+{
+    "name": "sync-tunes-backend",
+    "version": "1.0.0",
+    "description": "Secure, cached YouTube Music API wrapper with Firebase Auth",
+    "main": "index.js",
+    "type": "module",
+    "scripts": {
+        "start": "nodemon index.js",
+        "dev": "nodemon --watch index.js"
+    },
+    "keywords": [
+        "ytmusic",
+        "firebase",
+        "api",
+        "cache"
+    ],
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "cors": "^2.8.5",
+        "dotenv": "^17.4.2",
+        "express": "^4.19.0",
+        "firebase-admin": "^12.1.0",
+        "node-cache": "^5.1.2",
+        "nodemon": "^3.1.14",
+        "ytmusic-api": "^5.2.0"
+    }
+}
