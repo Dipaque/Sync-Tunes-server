@@ -103,7 +103,7 @@ app.get('/api/album/:id',authenticate, cacheRoute, async (req, res) => {
 // Get Song Details / Upcoming tracks
 app.get('/api/song/:id/up-next',authenticate, cacheRoute, async (req, res) => {
   try {
-    const upcoming = await ytmusic.getUpNext(req.params.id);
+    const upcoming = await ytmusic.getUpNexts(req.params.id);
     res.json(upcoming);
   } catch (error) {
     res.status(500).json({ error: error.message });
