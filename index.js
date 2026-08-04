@@ -120,6 +120,16 @@ app.get('/api/playlist/:id',authenticate, cacheRoute, async (req, res) => {
     }
   });
 
+  // Get Lyrics
+app.get('/api/lyrics/:id',authenticate, cacheRoute, async (req, res) => {
+    try {
+      const lyrics = await ytmusic.getLyrics(req.params.id);
+      res.json(lyrics);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
