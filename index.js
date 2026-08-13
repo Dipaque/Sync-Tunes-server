@@ -33,7 +33,9 @@ const cache = new NodeCache({ stdTTL: 3600 });
 
 // 3. Initialize YT Music
 const ytmusic = new YTMusic();
-await ytmusic.initialize();
+await ytmusic.initialize({
+  cookies: process.env.YTMUSIC_COOKIES
+});
 
 // Middleware: Verify Firebase Google Auth Token
 

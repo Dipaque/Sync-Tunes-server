@@ -6,7 +6,9 @@ import YTMusic from 'ytmusic-api'; // Replace with your actual import/initializa
 
 // Initialize YT Music
 const ytmusic = new YTMusic();
-await ytmusic.initialize();
+await ytmusic.initialize({
+  cookies: process.env.YTMUSIC_COOKIES
+});
 
 // 1. Like/Unlike Artist, Album, or Playlist (Passing only ID)
 const likeEntity = async (req, res) => {

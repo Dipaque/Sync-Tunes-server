@@ -3,7 +3,9 @@ import YTMusic from 'ytmusic-api'; // Replace with your actual import/initializa
 
 // 3. Initialize YT Music
 const ytmusic = new YTMusic();
-await ytmusic.initialize();
+await ytmusic.initialize({
+  cookies: process.env.YTMUSIC_COOKIES
+});
 
 const searchMusic = async (req, res) => {
   try {
