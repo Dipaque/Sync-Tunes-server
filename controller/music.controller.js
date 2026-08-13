@@ -17,6 +17,15 @@ const searchMusic = async (req, res) => {
   }
 };
 
+const getSongInfo = async (req, res) => {
+    try{
+        const song = await ytmusic.getSong(req.params.id)
+        res.json(song)
+    }catch(error){
+        res.status(500).json({ error: error.message });
+    }
+}
+
 const getArtist = async (req, res) => {
   try {
     const artist = await ytmusic.getArtist(req.params.id);
@@ -180,5 +189,6 @@ export  {
   getUpNext,
   getHome,
   getPlaylist,
-  getLyrics
+  getLyrics,
+  getSongInfo
 };

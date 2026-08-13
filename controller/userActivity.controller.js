@@ -13,54 +13,85 @@ const likeEntity = async (req, res) => {
   try {
     const db = admin.firestore();
     const { userId, id, type, isLiked } = req.body; 
-    // type should be 'artist', 'album', or 'playlist'
 
     if (!userId || !id || !type) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
+    const typeLower = type.toLowerCase();
+    
+    // 1. Clean Dictionary Mapping (Highly scalable for future types)
+    const arrayMap = {
+      artist: 'likedArtists',
+      album: 'likedAlbums',
+      playlist: 'likedPlaylists',
+      song: 'likedSongs'
+    };
+
+    const arrayName = arrayMap[typeLower];
+    if (!arrayName) {
+      return res.status(400).json({ error: `Invalid entity type: ${type}` });
+    }
+
     const userRef = db.collection('users').doc(userId);
     const userSnap = await userRef.get();
     
-    // Determine which array to update based on type
-    const arrayName = type === 'artist' ? 'likedArtists' : 
-                      type === 'album' ? 'likedAlbums' : 'likedPlaylists';
-                      
+    if (!userSnap.exists) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
     let currentArray = userSnap.data()?.[arrayName] || [];
 
     if (isLiked) {
-      // Fetch metadata from YouTube Music before saving
-      let entityData = { id, type: type.toUpperCase() };
-      
-      if (type === 'artist') {
-        const data = await ytmusic.getArtist(id);
-        entityData = { 
-          ...entityData, 
-          title: data.name || "Unknown Artist", 
-          image: data.thumbnails?.[0]?.url || null, 
-          channelName: data.name
-        };
-      } else if (type === 'album') {
-        const data = await ytmusic.getAlbum(id);
-        entityData = { 
-          ...entityData, 
-          title: data.name || data.title || "Unknown Album", 
-          image: data.thumbnails?.[0]?.url || null, 
-          channelName: data.name || data.artists?.map(a => a.name).join(', ') || "Unknown" 
-        };
-      } else if (type === 'playlist') {
-        const data = await ytmusic.getPlaylist(id);
-        entityData = { 
-          ...entityData, 
-          title: data.name || data.title || "Unknown Playlist", 
-          image: data.thumbnails?.[0]?.url || null 
-        };
+      // 2. Prevent duplicate entries before making expensive YT Music calls
+      if (currentArray.some(item => item.id === id)) {
+        return res.status(200).json({ success: true, message: "Already liked" });
       }
 
-      // Add if not exists
-      if (!currentArray.some(item => item.id === id)) {
-        currentArray.push({ ...entityData, createdAt: admin.firestore.Timestamp.now() });
+      let entityData = { id, type: type.toUpperCase() };
+      
+      // 3. Safe Metadata Fetching with Error Handling
+      try {
+        if (typeLower === 'artist') {
+          const data = await ytmusic.getArtist(id);
+          entityData = { 
+            ...entityData, 
+            title: data.name || "Unknown Artist", 
+            image: data.thumbnails?.[0]?.url || null, 
+            channelName: data.name 
+          };
+        } else if (typeLower === 'album') {
+          const data = await ytmusic.getAlbum(id);
+          entityData = { 
+            ...entityData, 
+            title: data.name || data.title || "Unknown Album", 
+            image: data.thumbnails?.[0]?.url || null, 
+            channelName: data.name || data.artists?.map(a => a.name).join(', ') || "Unknown" 
+          };
+        } else if (typeLower === 'playlist') {
+          const data = await ytmusic.getPlaylist(id);
+          entityData = { 
+            ...entityData, 
+            title: data.name || data.title || "Unknown Playlist", 
+            image: data.thumbnails?.[0]?.url || null 
+          };
+        } else if (typeLower === 'song') {
+          // 🐛 SONG METADATA EXTRACTION
+          const data = await ytmusic.getSong(id);
+          entityData = {
+            ...entityData,
+            title: data.name || data.title || data.videoDetails?.title || "Unknown Song",
+            image: data.thumbnails?.[0]?.url || data.videoDetails?.thumbnail?.thumbnails?.[0]?.url || null,
+            channelName: data.artist?.name || data.author || data.videoDetails?.author || "Unknown Artist",
+            artistId: data.artist?.artistId || data.channelId || null
+          };
+        }
+      } catch (ytError) {
+        console.error(`Failed to fetch metadata for ${typeLower} ${id}:`, ytError);
+        return res.status(502).json({ error: "Failed to fetch entity details from streaming service" });
       }
+
+      currentArray.push({ ...entityData, createdAt: admin.firestore.Timestamp.now() });
     } else {
       // Remove from array
       currentArray = currentArray.filter(item => item.id !== id);
@@ -71,7 +102,7 @@ const likeEntity = async (req, res) => {
 
   } catch (error) {
     console.error("Like Entity Error:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 

@@ -14,7 +14,8 @@ import {
   getUpNext,
   getHome,
   getPlaylist,
-  getLyrics
+  getLyrics,
+  getSongInfo
 } from '../../controller/music.controller.js';
 
 // Apply middlewares to all routes in this file (cleaner than adding to each line)
@@ -29,5 +30,6 @@ router.get('/song/:id/up-next', getUpNext);
 router.get('/home', getHome);
 router.get('/playlist/:id', getPlaylist);
 router.get('/lyrics/:id', getLyrics);
+router.get('/song/:id', getSongInfo);
 
 export default router;
