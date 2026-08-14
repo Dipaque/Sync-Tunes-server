@@ -4,6 +4,9 @@ import admin from 'firebase-admin';
 
 import YTMusic from 'ytmusic-api'; // Replace with your actual import/initialization
 
+// config env
+dotenv.config();
+
 // Initialize YT Music
 const ytmusic = new YTMusic();
 await ytmusic.initialize({
