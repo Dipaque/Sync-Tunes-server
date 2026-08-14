@@ -18,7 +18,9 @@ await ytmusic.initialize({
 const likeEntity = async (req, res) => {
   try {
     const db = admin.firestore();
-    const { userId, id, type, isLiked } = req.body; 
+    
+    // EXTRACT THE EXTRA DATA FROM REQ.BODY
+    const { userId, id, type, isLiked, title, image, channelName, artistId } = req.body; 
 
     if (!userId || !id || !type) {
       return res.status(400).json({ error: "Missing required fields" });
@@ -26,7 +28,6 @@ const likeEntity = async (req, res) => {
 
     const typeLower = type.toLowerCase();
     
-    // 1. Clean Dictionary Mapping (Highly scalable for future types)
     const arrayMap = {
       artist: 'likedArtists',
       album: 'likedAlbums',
@@ -35,71 +36,64 @@ const likeEntity = async (req, res) => {
     };
 
     const arrayName = arrayMap[typeLower];
-    if (!arrayName) {
-      return res.status(400).json({ error: `Invalid entity type: ${type}` });
-    }
+    if (!arrayName) return res.status(400).json({ error: `Invalid type` });
 
     const userRef = db.collection('users').doc(userId);
     const userSnap = await userRef.get();
     
-    if (!userSnap.exists) {
-      return res.status(404).json({ error: "User not found" });
-    }
+    if (!userSnap.exists) return res.status(404).json({ error: "User not found" });
 
     let currentArray = userSnap.data()?.[arrayName] || [];
 
     if (isLiked) {
-      // 2. Prevent duplicate entries before making expensive YT Music calls
       if (currentArray.some(item => item.id === id)) {
         return res.status(200).json({ success: true, message: "Already liked" });
       }
 
       let entityData = { id, type: type.toUpperCase() };
       
-      // 3. Safe Metadata Fetching with Error Handling
       try {
         if (typeLower === 'artist') {
           const data = await ytmusic.getArtist(id);
-          entityData = { 
-            ...entityData, 
-            title: data.name || "Unknown Artist", 
-            image: data.thumbnails?.[0]?.url || null, 
-            channelName: data.name 
-          };
+          entityData = { ...entityData, title: data.name, image: data.thumbnails?.[0]?.url, channelName: data.name };
         } else if (typeLower === 'album') {
           const data = await ytmusic.getAlbum(id);
-          entityData = { 
-            ...entityData, 
-            title: data.name || data.title || "Unknown Album", 
-            image: data.thumbnails?.[0]?.url || null, 
-            channelName: data.name || data.artists?.map(a => a.name).join(', ') || "Unknown" 
-          };
+          entityData = { ...entityData, title: data.name || data.title, image: data.thumbnails?.[0]?.url, channelName: data.name || data.artists?.map(a => a.name).join(', ') };
         } else if (typeLower === 'playlist') {
           const data = await ytmusic.getPlaylist(id);
-          entityData = { 
-            ...entityData, 
-            title: data.name || data.title || "Unknown Playlist", 
-            image: data.thumbnails?.[0]?.url || null 
-          };
-        } else if (typeLower === 'song') {
-          // 🐛 SONG METADATA EXTRACTION
-          const data = await ytmusic.getSong(id);
+          entityData = { ...entityData, title: data.name || data.title, image: data.thumbnails?.[0]?.url };
+        } 
+        
+        else if (typeLower === 'song') {
+          // 🐛 FIX: PREFER FRONTEND DATA TO BYPASS GEO-BLOCKS
           entityData = {
             ...entityData,
-            title: data.name || data.title || data.videoDetails?.title || "Unknown Song",
-            image: data.thumbnails?.[0]?.url || data.videoDetails?.thumbnail?.thumbnails?.[0]?.url || null,
-            channelName: data.artist?.name || data.author || data.videoDetails?.author || "Unknown Artist",
-            artistId: data.artist?.artistId || data.channelId || null
+            title: title || "Unknown Song",
+            image: image || null,
+            channelName: channelName || "Unknown Artist",
+            artistId: artistId || null
           };
+
+          // Only attempt YouTube fetch if the frontend didn't send a title
+          if (!title) {
+            try {
+              const data = await ytmusic.getSong(id);
+              entityData.title = data.name || data.videoDetails?.title || "Unknown Song";
+              entityData.image = data.thumbnails?.[0]?.url || data.videoDetails?.thumbnail?.thumbnails?.[0]?.url || null;
+              entityData.channelName = data.artist?.name || data.author || "Unknown Artist";
+              entityData.artistId = data.artist?.artistId || data.channelId || null;
+            } catch (ytError) {
+              console.warn(`[GEO-BLOCK SAFE] ytmusic.getSong failed for ${id}, falling back to defaults.`);
+            }
+          }
         }
-      } catch (ytError) {
-        console.error(`Failed to fetch metadata for ${typeLower} ${id}:`, ytError);
-        return res.status(502).json({ error: "Failed to fetch entity details from streaming service" });
+      } catch (fetchError) {
+        console.warn(`Failed to fetch metadata for ${typeLower} ${id}:`, fetchError);
+        // Do not crash the API, just save the ID so the user's like is still recorded
       }
 
       currentArray.push({ ...entityData, createdAt: admin.firestore.Timestamp.now() });
     } else {
-      // Remove from array
       currentArray = currentArray.filter(item => item.id !== id);
     }
 
