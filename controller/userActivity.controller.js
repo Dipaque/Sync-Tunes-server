@@ -1,6 +1,7 @@
 // routes/playlist.js
 import express from 'express';
 import admin from 'firebase-admin';
+import dotenv from "dotenv";
 
 import YTMusic from 'ytmusic-api'; // Replace with your actual import/initialization
 

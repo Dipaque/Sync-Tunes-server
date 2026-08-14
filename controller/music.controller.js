@@ -1,5 +1,6 @@
 // controllers/musicController.js
 import YTMusic from 'ytmusic-api'; // Replace with your actual import/initialization
+import dotenv from "dotenv";
 
 // config env
 dotenv.config();
